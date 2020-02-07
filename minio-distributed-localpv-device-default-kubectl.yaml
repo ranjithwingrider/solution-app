@@ -5,13 +5,12 @@ metadata:
   labels:
     app: minio
 spec:
+  clusterIP: None
   ports:
     - port: 9000
-      nodePort: 32701
-      protocol: TCP
+      name: minio
   selector:
     app: minio
-  type: NodePort
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -20,7 +19,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: minio 
+      app: minio
   serviceName: minio
   replicas: 4
   template:
@@ -37,9 +36,9 @@ spec:
                 matchExpressions:
                 - key: app
                   operator: In
-                  values: 
+                  values:
                   - minio
-              topologyKey: kubernetes.io/hostname 
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: minio
         env:
@@ -60,7 +59,7 @@ spec:
           mountPath: /data
   # These are converted to volume claims by the controller
   # and mounted at the paths mentioned above.
-  volumeClaimTemplates:
+  volumeClaimTemplates:  
   - metadata:
       name: data
     spec:
@@ -72,3 +71,15 @@ spec:
       # Uncomment and add storageClass specific to your requirements below. Read more https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
       storageClassName: openebs-device
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service
+spec:
+  type: NodePort
+  ports:
+    - port: 9000
+      nodePort: 32701
+      protocol: TCP
+  selector:
+    app: minio
