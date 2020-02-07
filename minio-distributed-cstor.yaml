@@ -19,12 +19,16 @@ metadata:
 spec:
   selector:
     matchLabels:
+      openebs.io/replica-anti-affinity: minio
+      openebs.io/sts-target-affinity: minio    
       app: minio
   serviceName: minio
   replicas: 4
   template:
     metadata:
       labels:
+      openebs.io/replica-anti-affinity: minio
+      openebs.io/sts-target-affinity: minio      
         app: minio
     spec:
       affinity:
