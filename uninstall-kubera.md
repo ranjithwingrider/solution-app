@@ -5,7 +5,7 @@ By deleting cluster from Director Online will delete all pods under `maya-system
 Delete all SCs
 
 ```
-kubectl get sc | grep -v "standard" | awk '{print $1}' | xargs kubectl delete sc
+kubectl get sc | grep -v "standard" | awk '{print $1}' | grep -v "NAME" |  xargs kubectl delete sc
 ```
 
 Delete OpenEBS namespace
