@@ -17,5 +17,5 @@ kubectl delete ns openebs
 Delete all CRDs naming with OpenEBS, Volumesnapshot, Velero and MayaData.
 
 ```
-kubectl get crds | grep -i "openebs\|volumesnapshot\|velero\|mayadata" | awk '{print $1}' | xargs kubectl delete crds
+kubectl get crds | grep -i "openebs\|volumesnapshot\|velero\|mayadata\|csi" | awk '{print $1}' | xargs kubectl delete crds
 ```
