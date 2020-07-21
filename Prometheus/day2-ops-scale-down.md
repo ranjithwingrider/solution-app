@@ -1,7 +1,6 @@
 This will help to handle a scale down/ Node down scenario when a Local PV volume has been used as the persistent storage volume for your stateful application, in this case Prometheus.
 
 ## Before scale down
------
 
 ### Get the details of Pods and PVCs are running under `monitoring` namespace
 
@@ -130,7 +129,6 @@ prometheus-prometheus-node-exporter-rmprg        1/1     Running   0          78
 
 
 ## After scale up 
-----
 
 ### Labellng new node
 
@@ -225,8 +223,7 @@ alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-2   Bound    pvc-
 prometheus-new-prometheus-db-prometheus-new-prometheus-0           Bound    pvc-4829833c-994e-445c-9b16-4a40d81f95b1   100Gi      RWO            openebs-device   101m
 prometheus-new-prometheus-db-prometheus-new-prometheus-1           Bound    pvc-4580c6df-759d-4a0a-9459-b9737a01f10b   100Gi      RWO            openebs-device   101m
 prometheus-new-prometheus-db-prometheus-new-prometheus-2           Bound    pvc-df1e8ec1-7de0-427e-9bdb-03014265e608   100Gi      RWO            openebs-device   101m
-ranjithr005@cloudshell:~/prometheus (quantum-hash-245514)$
-
+```
 
 ### Delete the PVCs associated to the pending pods one by one
 
