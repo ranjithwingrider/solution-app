@@ -205,11 +205,11 @@ pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   20Gi       RWO            Delete     
      $ kubectl label node <Node_name> mayadata.io/control-plane=true
      
      $ kubectl label node <Node_name> mayadata.io/data-plane=true
-
+     ```
+   - If your application is used some custom label as `nodeSelector`, the you should label the nodes accordingly.
+     ```
      $ kubectl label node <Node_name> <custom-label-used-in-nodeSelector-field-in-Application>
      ```
-   - If your application is used some custom label as `nodeSelector`, the you should label the node accordingly.
- 
    In my case, I have used Kudo Cassandra and I do not required to do any labelling of Nodes.
 
     ```
