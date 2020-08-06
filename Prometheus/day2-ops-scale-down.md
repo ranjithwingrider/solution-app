@@ -1,289 +1,344 @@
-This will help to handle a scale down/ Node down scenario when a Local PV volume has been used as the persistent storage volume for your stateful application, in this case Prometheus.
+This will help to handle a scale down/ Node down scenario when a Local PV device has been used as the persistent storage volume for your stateful application, in this case Prometheus.
 
 ## Before scale down
 
-### Get the details of Pods and PVCs are running under `monitoring` namespace
+### Get the details of Pods, PVCs, SVC and PVs are running under `cassandra` namespace
 
 ```
-$ kubectl get pod -n monitoring -o wide
+$ kubectl get pod -n cassandra
 
-NAME                                             READY   STATUS    RESTARTS   AGE   IP            NODE                                        NOMINATED NODE   READINESS GATES
-alertmanager-new-alertmanager-0                  2/2     Running   0          70m   10.20.0.16    gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
-alertmanager-new-alertmanager-1                  2/2     Running   0          70m   10.20.2.21    gke-prometheus-default-pool-8ba1a274-zhk3   <none>           <none>
-alertmanager-new-alertmanager-2                  2/2     Running   0          70m   10.20.1.12    gke-prometheus-default-pool-8ba1a274-h2bt   <none>           <none>
-new-operator-5bfb4dc869-tkzxl                    1/1     Running   0          71m   10.20.1.11    gke-prometheus-default-pool-8ba1a274-h2bt   <none>           <none>
-prometheus-grafana-85b4dbb556-lmsdr              2/2     Running   0          71m   10.20.0.14    gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
-prometheus-kube-state-metrics-6df5d44568-b22bh   1/1     Running   0          71m   10.20.0.15    gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
-prometheus-new-prometheus-0                      3/3     Running   1          70m   10.20.1.13    gke-prometheus-default-pool-8ba1a274-h2bt   <none>           <none>
-prometheus-new-prometheus-1                      3/3     Running   1          70m   10.20.2.22    gke-prometheus-default-pool-8ba1a274-zhk3   <none>           <none>
-prometheus-new-prometheus-2                      3/3     Running   1          70m   10.20.0.17    gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
-prometheus-prometheus-node-exporter-dklvk        1/1     Running   0          71m   10.128.0.61   gke-prometheus-default-pool-8ba1a274-h2bt   <none>           <none>
-prometheus-prometheus-node-exporter-pd2nt        1/1     Running   0          71m   10.128.0.62   gke-prometheus-default-pool-8ba1a274-zhk3   <none>           <none>
-prometheus-prometheus-node-exporter-rmprg        1/1     Running   0          71m   10.128.0.59   gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
+NAME                       READY   STATUS    RESTARTS   AGE    IP               NODE                                            NOMINATED NODE   READINESS GATES
+cassandra-openebs-node-0   1/1     Running   0          123m   192.168.21.10    ip-192-168-22-232.ap-south-1.compute.internal   <none>           <none>
+cassandra-openebs-node-1   1/1     Running   0          122m   192.168.33.255   ip-192-168-60-228.ap-south-1.compute.internal   <none>           <none>
+cassandra-openebs-node-2   1/1     Running   0          121m   192.168.74.145   ip-192-168-82-140.ap-south-1.compute.internal   <none>           <none>
 ```
 
 ```
-$ kubectl get pvc -n monitoring
+$ kubectl get pvc,svc -n cassandra
 
 NAME                                                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS     AGE
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-0   Bound    pvc-b947139a-6e60-4d76-bb6b-95f1803f4882   100Gi      RWO            openebs-device   71m
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-1   Bound    pvc-76426ffd-fec5-41a2-aa19-20a91349b0c9   100Gi      RWO            openebs-device   71m
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-2   Bound    pvc-b55023a0-7f94-41a1-8f37-108b2f432297   100Gi      RWO            openebs-device   71m
-prometheus-new-prometheus-db-prometheus-new-prometheus-0           Bound    pvc-4829833c-994e-445c-9b16-4a40d81f95b1   100Gi      RWO            openebs-device   70m
-prometheus-new-prometheus-db-prometheus-new-prometheus-1           Bound    pvc-4580c6df-759d-4a0a-9459-b9737a01f10b   100Gi      RWO            openebs-device   70m
-prometheus-new-prometheus-db-prometheus-new-prometheus-2           Bound    pvc-df1e8ec1-7de0-427e-9bdb-03014265e608   100Gi      RWO            openebs-device   70m
+persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-0   Bound    pvc-22b0a740-f58d-41d6-8520-325fc7266a4f   20Gi       RWO            openebs-device   119m
+persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-1   Bound    pvc-0d36674e-9094-4dca-889c-40d62bc6bb10   20Gi       RWO            openebs-device   118m
+persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-2   Bound    pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   20Gi       RWO            openebs-device   117m
+
+NAME                            TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)                      AGE
+service/cassandra-openebs-svc   ClusterIP   10.100.9.95   <none>        7000/TCP,7001/TCP,9042/TCP   119m
+
+$ kubectl get pv
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                                                  STORAGECLASS     REASON   AGE
+pvc-0d36674e-9094-4dca-889c-40d62bc6bb10   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-1   openebs-device            118m
+pvc-22b0a740-f58d-41d6-8520-325fc7266a4f   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-0   openebs-device            119m
+pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-2   openebs-device            117m
 ```
 
 ### Get the details of Nodes
 ```
-$ kubectl get node -o wide
+$ kubectl get node --show-labels
 
-NAME                                        STATUS   ROLES    AGE    VERSION          INTERNAL-IP   EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION   CONTAINER-RUNTIME
-gke-prometheus-default-pool-8ba1a274-k6cj   Ready    <none>   167m   v1.16.11-gke.5   10.128.0.59   35.225.65.78     Ubuntu 18.04.4 LTS   5.3.0-1016-gke   docker://19.3.2
-gke-prometheus-default-pool-8ba1a274-h2bt   Ready    <none>   167m   v1.16.11-gke.5   10.128.0.61   34.66.41.150     Ubuntu 18.04.4 LTS   5.3.0-1016-gke   docker://19.3.2
-gke-prometheus-default-pool-8ba1a274-zhk3   Ready    <none>   167m   v1.16.11-gke.5   10.128.0.62   35.193.112.228   Ubuntu 18.04.4 LTS   5.3.0-1016-gke   docker://19.3.2
+NAME                                            STATUS   ROLES    AGE     VERSION   INTERNAL-IP      EXTERNAL-IP      OS-IMAGE             KERNEL-VERSION   CONTAINER-RUNTIME
+ip-192-168-22-232.ap-south-1.compute.internal   Ready    <none>   3h28m   v1.16.9   192.168.22.232   3.7.255.62       Ubuntu 18.04.4 LTS   5.3.0-1030-aws   docker://17.3.2
+ip-192-168-60-228.ap-south-1.compute.internal   Ready    <none>   3h28m   v1.16.9   192.168.60.228   15.207.100.219   Ubuntu 18.04.4 LTS   5.3.0-1030-aws   docker://17.3.2
+ip-192-168-82-140.ap-south-1.compute.internal   Ready    <none>   3h28m   v1.16.9   192.168.82.140   13.127.209.74    Ubuntu 18.04.4 LTS   5.3.0-1030-aws   docker://17.3.2
+
+
 ```
 
 ### Get the details of nodes with labels
 ```
 $ kubectl get node --show-labels
 
-NAME                                        STATUS   ROLES    AGE    VERSION          LABELS
-gke-prometheus-default-pool-8ba1a274-k6cj   Ready    <none>   169m   v1.16.11-gke.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=n1-standard-2,beta.kubernetes.io/os=linux,cloud.google.com/gke-nodepool=default-pool,cloud.google.com/gke-os-distribution=ubuntu,failure-domain.beta.kubernetes.io/region=us-central1,failure-domain.beta.kubernetes.io/zone=us-central1-c,kubernetes.io/arch=amd64,kubernetes.io/hostname=gke-prometheus-default-pool-8ba1a274-k6cj,kubernetes.io/os=linux,mayadata.io/control-plane=true,mayadata.io/data-plane=true,node=prometheus,topology.cstor.openebs.io/nodeName=gke-prometheus-default-pool-8ba1a274-k6cj
-gke-prometheus-default-pool-8ba1a274-h2bt   Ready    <none>   169m   v1.16.11-gke.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=n1-standard-2,beta.kubernetes.io/os=linux,cloud.google.com/gke-nodepool=default-pool,cloud.google.com/gke-os-distribution=ubuntu,failure-domain.beta.kubernetes.io/region=us-central1,failure-domain.beta.kubernetes.io/zone=us-central1-c,kubernetes.io/arch=amd64,kubernetes.io/hostname=gke-prometheus-default-pool-8ba1a274-h2bt,kubernetes.io/os=linux,mayadata.io/control-plane=true,mayadata.io/data-plane=true,node=prometheus,topology.cstor.openebs.io/nodeName=gke-prometheus-default-pool-8ba1a274-h2bt
-gke-prometheus-default-pool-8ba1a274-zhk3   Ready    <none>   169m   v1.16.11-gke.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=n1-standard-2,beta.kubernetes.io/os=linux,cloud.google.com/gke-nodepool=default-pool,cloud.google.com/gke-os-distribution=ubuntu,failure-domain.beta.kubernetes.io/region=us-central1,failure-domain.beta.kubernetes.io/zone=us-central1-c,kubernetes.io/arch=amd64,kubernetes.io/hostname=gke-prometheus-default-pool-8ba1a274-zhk3,kubernetes.io/os=linux,mayadata.io/control-plane=true,mayadata.io/data-plane=true,node=prometheus,topology.cstor.openebs.io/nodeName=gke-prometheus-default-pool-8ba1a274-zhk3
+NAME                                            STATUS   ROLES    AGE     VERSION   LABELS
+ip-192-168-22-232.ap-south-1.compute.internal   Ready    <none>   3h28m   v1.16.9   alpha.eksctl.io/cluster-name=ranjith-eks3,alpha.eksctl.io/instance-id=i-056a9695e63d2efd4,alpha.eksctl.io/nodegroup-name=standard-workers,beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=t3.xlarge,beta.kubernetes.io/os=linux,failure-domain.beta.kubernetes.io/region=ap-south-1,failure-domain.beta.kubernetes.io/zone=ap-south-1c,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-192-168-22-232,kubernetes.io/os=linux
+ip-192-168-60-228.ap-south-1.compute.internal   Ready    <none>   3h28m   v1.16.9   alpha.eksctl.io/cluster-name=ranjith-eks3,alpha.eksctl.io/instance-id=i-046af28d7ea9027e1,alpha.eksctl.io/nodegroup-name=standard-workers,beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=t3.xlarge,beta.kubernetes.io/os=linux,failure-domain.beta.kubernetes.io/region=ap-south-1,failure-domain.beta.kubernetes.io/zone=ap-south-1b,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-192-168-60-228,kubernetes.io/os=linux
+ip-192-168-82-140.ap-south-1.compute.internal   Ready    <none>   3h28m   v1.16.9   alpha.eksctl.io/cluster-name=ranjith-eks3,alpha.eksctl.io/instance-id=i-07ae53e185aa718c2,alpha.eksctl.io/nodegroup-name=standard-workers,beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=t3.xlarge,beta.kubernetes.io/os=linux,failure-domain.beta.kubernetes.io/region=ap-south-1,failure-domain.beta.kubernetes.io/zone=ap-south-1a,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-192-168-82-140,kubernetes.io/os=linux
 ```
 
 ### Get the details Blockdevices attached to each node
 ```
 $ kubectl get bd -n openebs
 
-NAME                                           NODENAME                                    SIZE           CLAIMSTATE   STATUS   AGE
-blockdevice-4f51859193d333687a873af7acf8ad78   gke-prometheus-default-pool-8ba1a274-h2bt   107374182400   Claimed      Active   94m
-blockdevice-630ae186f095cd94d9158bdaa0005ae4   gke-prometheus-default-pool-8ba1a274-k6cj   107374182400   Claimed      Active   94m
-blockdevice-747a07ffae7a6a53762b3ce262c3307a   gke-prometheus-default-pool-8ba1a274-zhk3   107374182400   Claimed      Active   94m
-blockdevice-967d7816c2a2d73b91c8c6310dc70465   gke-prometheus-default-pool-8ba1a274-k6cj   107374182400   Claimed      Active   94m
-blockdevice-ddfc782ea661fc9007a896438f483e3d   gke-prometheus-default-pool-8ba1a274-zhk3   107374182400   Claimed      Active   94m
-blockdevice-e5265da8a790a2374758ec4600cd4bd7   gke-prometheus-default-pool-8ba1a274-h2bt   107374182400   Claimed      Active   94m
+NAME                                           NODENAME                                        SIZE          CLAIMSTATE   STATUS   AGE
+blockdevice-82d4e91902529bd6d718f8fbe956274b   ip-192-168-22-232.ap-south-1.compute.internal   42949672960   Claimed      Active   123m
+blockdevice-978ffcc0ee3c7b8bc709b5fef0b25953   ip-192-168-60-228.ap-south-1.compute.internal   42949672960   Claimed      Active   123m
+blockdevice-ce1a004f2f7ba2fa603a2e8e0331aea0   ip-192-168-82-140.ap-south-1.compute.internal   42949672960   Claimed      Active   123m
 ```
 
+### Add some data into the the Database
 
+```
+kubectl exec -it cassandra-openebs-node-0 bash -n cassandra
+cassandra@cassandra-openebs-node-0:/$ nodetool status
+Datacenter: datacenter1
+=======================
+Status=Up/Down
+|/ State=Normal/Leaving/Joining/Moving
+--  Address         Load       Tokens       Owns (effective)  Host ID                               Rack
+UN  192.168.21.10   196.33 KiB  256          67.4%             29bb331f-67a2-4440-86dc-32540aa40bc1  rack1
+UN  192.168.33.255  208.2 KiB  256          66.3%             d16694a9-18d3-4625-a6b7-346ef09545a0  rack1
+UN  192.168.74.145  231.38 KiB  256          66.4%             db10a0d7-2b42-4e67-b048-b6dca0ded0a6  rack1
+
+cassandra@cassandra-openebs-node-0:/$ cqlsh --version
+cqlsh 5.0.1
+
+cassandra@cassandra-openebs-node-0:/$ cqlsh cassandra-openebs-svc.cassandra.svc.cluster.local
+Connected to cassandra-openebs at cassandra-openebs-svc.cassandra.svc.cluster.local:9042.
+[cqlsh 5.0.1 | Cassandra 3.11.6 | CQL spec 3.4.4 | Native protocol v4]
+Use HELP for help.
+cqlsh> create keyspace dev
+   ... with replication = {'class':'SimpleStrategy','replication_factor':1};
+
+cqlsh> use dev;
+
+cqlsh:dev> create table emp (empid int primary key,
+       ... emp_first varchar, emp_last varchar, emp_dept varchar);
+
+cqlsh:dev> insert into emp (empid, emp_first, emp_last, emp_dept)
+       ... values (1,'fred','smith','eng');
+
+cqlsh:dev> select * from emp;
+
+ empid | emp_dept | emp_first | emp_last
+-------+----------+-----------+----------
+     1 |      eng |      fred |    smith
+
+(1 rows)
+
+cqlsh:dev> update emp set emp_dept = 'fin' where empid = 1;
+
+cqlsh:dev> select * from emp;
+
+ empid | emp_dept | emp_first | emp_last
+-------+----------+-----------+----------
+     1 |      fin |      fred |    smith
+
+(1 rows)
+
+cqlsh:dev> insert into emp (empid, emp_first, emp_last, emp_dept)
+       ... values (2,'eon','morgan','sales');
+
+cqlsh:dev> insert into emp (empid, emp_first, emp_last, emp_dept) values (3,'Sree','Ram','qa');
+
+cqlsh:dev> select * from emp;
+
+ empid | emp_dept | emp_first | emp_last
+-------+----------+-----------+----------
+     1 |      fin |      fred |    smith
+     2 |    sales |       eon |   morgan
+     3 |       qa |     Ashok |    Kumar
+
+(3 rows)
+cqlsh:dev> exit
+```
 
 ## After scale down
 
-### Get the details of nodes with labels
+### Get the details of nodes
 
 ```
-$ kubectl get node --show-labels
-
-NAME                                        STATUS   ROLES    AGE    VERSION          LABELS
-gke-prometheus-default-pool-8ba1a274-k6cj   Ready    <none>   173m   v1.16.11-gke.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=n1-standard-2,beta.kubernetes.io/os=linux,cloud.google.com/gke-nodepool=default-pool,cloud.google.com/gke-os-distribution=ubuntu,failure-domain.beta.kubernetes.io/region=us-central1,failure-domain.beta.kubernetes.io/zone=us-central1-c,kubernetes.io/arch=amd64,kubernetes.io/hostname=gke-prometheus-default-pool-8ba1a274-k6cj,kubernetes.io/os=linux,mayadata.io/control-plane=true,mayadata.io/data-plane=true,node=prometheus,topology.cstor.openebs.io/nodeName=gke-prometheus-default-pool-8ba1a274-k6cj
-gke-prometheus-default-pool-8ba1a274-zhk3   Ready    <none>   173m   v1.16.11-gke.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=n1-standard-2,beta.kubernetes.io/os=linux,cloud.google.com/gke-nodepool=default-pool,cloud.google.com/gke-os-distribution=ubuntu,failure-domain.beta.kubernetes.io/region=us-central1,failure-domain.beta.kubernetes.io/zone=us-central1-c,kubernetes.io/arch=amd64,kubernetes.io/hostname=gke-prometheus-default-pool-8ba1a274-zhk3,kubernetes.io/os=linux,mayadata.io/control-plane=true,mayadata.io/data-plane=true,node=prometheus,topology.cstor.openebs.io/nodeName=gke-prometheus-default-pool-8ba1a274-zhk3
+$ kubectl get node
+No resources found in default namespace.
 ```
 
-### Get the details of Blockdevices 
-```
-$ kubectl get bd -n openebs
-
-NAME                                           NODENAME                                    SIZE           CLAIMSTATE   STATUS    AGE
-blockdevice-4f51859193d333687a873af7acf8ad78   gke-prometheus-default-pool-8ba1a274-h2bt   107374182400   Claimed      Unknown   101m
-blockdevice-630ae186f095cd94d9158bdaa0005ae4   gke-prometheus-default-pool-8ba1a274-k6cj   107374182400   Claimed      Active    100m
-blockdevice-747a07ffae7a6a53762b3ce262c3307a   gke-prometheus-default-pool-8ba1a274-zhk3   107374182400   Claimed      Active    100m
-blockdevice-967d7816c2a2d73b91c8c6310dc70465   gke-prometheus-default-pool-8ba1a274-k6cj   107374182400   Claimed      Active    101m
-blockdevice-ddfc782ea661fc9007a896438f483e3d   gke-prometheus-default-pool-8ba1a274-zhk3   107374182400   Claimed      Active    101m
-blockdevice-e5265da8a790a2374758ec4600cd4bd7   gke-prometheus-default-pool-8ba1a274-h2bt   107374182400   Claimed      Active    100m
-```
-
-### Get the details of PVCs
+### Get the details of Pods,PVCs, SVC and PVs
 
 ```
-$ kubectl get pvc -n monitoring
+root@ranjith-m:~# kubectl get pod,pvc,svc -n cassandra
+NAME                           READY   STATUS    RESTARTS   AGE
+pod/cassandra-openebs-node-0   0/1     Pending   0          99s
 
 NAME                                                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS     AGE
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-0   Bound    pvc-b947139a-6e60-4d76-bb6b-95f1803f4882   100Gi      RWO            openebs-device   78m
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-1   Bound    pvc-76426ffd-fec5-41a2-aa19-20a91349b0c9   100Gi      RWO            openebs-device   78m
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-2   Bound    pvc-b55023a0-7f94-41a1-8f37-108b2f432297   100Gi      RWO            openebs-device   78m
-prometheus-new-prometheus-db-prometheus-new-prometheus-0           Bound    pvc-4829833c-994e-445c-9b16-4a40d81f95b1   100Gi      RWO            openebs-device   77m
-prometheus-new-prometheus-db-prometheus-new-prometheus-1           Bound    pvc-4580c6df-759d-4a0a-9459-b9737a01f10b   100Gi      RWO            openebs-device   77m
-prometheus-new-prometheus-db-prometheus-new-prometheus-2           Bound    pvc-df1e8ec1-7de0-427e-9bdb-03014265e608   100Gi      RWO            openebs-device   77m
+persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-0   Bound    pvc-22b0a740-f58d-41d6-8520-325fc7266a4f   20Gi       RWO            openebs-device   131m
+persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-1   Bound    pvc-0d36674e-9094-4dca-889c-40d62bc6bb10   20Gi       RWO            openebs-device   130m
+persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-2   Bound    pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   20Gi       RWO            openebs-device   129m
+
+NAME                            TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)                      AGE
+service/cassandra-openebs-svc   ClusterIP   10.100.9.95   <none>        7000/TCP,7001/TCP,9042/TCP   131m
+
+$ kubectl get pv
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                                                  STORAGECLASS     REASON   AGE
+pvc-0d36674e-9094-4dca-889c-40d62bc6bb10   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-1   openebs-device            130m
+pvc-22b0a740-f58d-41d6-8520-325fc7266a4f   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-0   openebs-device            131m
+pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-2   openebs-device            129m
 ```
-
-### Get the details of Pods
-
-```
-$ kubectl get pod -n monitoring -o wide
-
-NAME                                             READY   STATUS    RESTARTS   AGE     IP            NODE                                        NOMINATED NODE   READINESS GATES
-alertmanager-new-alertmanager-0                  2/2     Running   0          78m     10.20.0.16    gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
-alertmanager-new-alertmanager-1                  2/2     Running   0          78m     10.20.2.21    gke-prometheus-default-pool-8ba1a274-zhk3   <none>           <none>
-alertmanager-new-alertmanager-2                  0/2     Pending   0          4m29s   <none>        <none>                                      <none>           <none>
-new-operator-5bfb4dc869-vcrzs                    1/1     Running   0          4m36s   10.20.2.26    gke-prometheus-default-pool-8ba1a274-zhk3   <none>           <none>
-prometheus-grafana-85b4dbb556-lmsdr              2/2     Running   0          78m     10.20.0.14    gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
-prometheus-kube-state-metrics-6df5d44568-b22bh   1/1     Running   0          78m     10.20.0.15    gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
-prometheus-new-prometheus-0                      0/3     Pending   0          4m29s   <none>        <none>                                      <none>           <none>
-prometheus-new-prometheus-1                      3/3     Running   1          78m     10.20.2.22    gke-prometheus-default-pool-8ba1a274-zhk3   <none>           <none>
-prometheus-new-prometheus-2                      3/3     Running   1          78m     10.20.0.17    gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
-prometheus-prometheus-node-exporter-pd2nt        1/1     Running   0          78m     10.128.0.62   gke-prometheus-default-pool-8ba1a274-zhk3   <none>           <none>
-prometheus-prometheus-node-exporter-rmprg        1/1     Running   0          78m     10.128.0.59   gke-prometheus-default-pool-8ba1a274-k6cj   <none>           <none>
-```
-
 
 ## After scale up 
 
-### Labellng new node
+1. Label the new nodes with the same custom label used in the `nodeSelector` field in the STS app. This is optional and only applicable if any such fields are added in Application.
 
-```
-$ kubectl label node gke-prometheus-default-pool-8ba1a274-h2bt mayadata.io/control-plane=true
-node/gke-prometheus-default-pool-8ba1a274-h2bt labeled
+2. Attach the disks to any node in the same zone. There is no specific order for the disk attachment. Note down the device name and node name where the particular device is getting attached. This information is required for Step5.
+   In my case, I have identified the list of Instances and Volume details in the specified region. I have already give my default region using `aws configure`.
+   ```
+   $ aws ec2 describe-instances --query 'Reservations[*].Instances[*].{Instances:InstanceId,AZ:Placement.AvailabilityZone}' --output table
+   
+   |           DescribeInstances          |
+   +--------------+-----------------------+
+   |      AZ      |       Instances       |
+   +--------------+-----------------------+
+   |  ap-south-1c |  i-06001f0f449dd1e45  |
+   |  ap-south-1a |  i-08a08af7384adfcd5  |
+   |  ap-south-1b |  i-0d10d0e48dec8c173  |
+   +--------------+-----------------------+
 
-$ kubectl label node gke-prometheus-default-pool-8ba1a274-h2bt mayadata.io/data-plane=true
-node/gke-prometheus-default-pool-8ba1a274-h2bt labeled
+   $ aws ec2 describe-volumes --filters Name=status,Values=available --query "Volumes[*].{VolId:VolumeId,AZ:AvailabilityZone,Size:Size}" --output table
+   
+   --------------------------------------------------
+   |                 DescribeVolumes                |
+   +--------------+-------+-------------------------+
+   |      AZ      | Size  |          VolId          |
+   +--------------+-------+-------------------------+
+   |  ap-south-1b |  40   |  vol-01085b2eb9395d2bc  |
+   |  ap-south-1c |  40   |  vol-086bbc80a9878906e  |
+   |  ap-south-1a |  40   |  vol-0a959c7d5ca02bfa5  |
+   +--------------+-------+-------------------------+
 
-$ kubectl label node gke-prometheus-default-pool-8ba1a274-h2bt node=prometheus
-node/gke-prometheus-default-pool-8ba1a274-h2bt labeled
-```
+   $ aws ec2 attach-volume --volume-id vol-0a959c7d5ca02bfa5 --instance-id i-08a08af7384adfcd5 --device /dev/sdf
+  
+   $ aws ec2 attach-volume --volume-id vol-01085b2eb9395d2bc --instance-id i-0d10d0e48dec8c173 --device /dev/sdf
+  
+   $ aws ec2 attach-volume --volume-id vol-086bbc80a9878906e --instance-id i-06001f0f449dd1e45 --device /dev/sdf
+   ```
+     
+3. This step is only apllicable for the following cases:
+ 
+   - If OpenEBS is installed using MayaData Kubera. OpenEBS pods will be in running state only if you label your new nodes with the following labels.  If you installed OpenEBS using `helm` or `kubectl`, then skip this step.
+     ```   
+     $ kubectl label node <Node_name> mayadata.io/control-plane=true
+     
+     $ kubectl label node <Node_name> mayadata.io/data-plane=true
 
-### Check labels of Nodes
+     $ kubectl label node <Node_name> <custom-label-used-in-nodeSelector-field-in-Application>
+     ```
+   - If your application is used some custom label as `nodeSelector`, the you should label the node accordingly.
+ 
+   In my case, I have used Kudo Cassandra and I do not required to do any labelling of Nodes.
 
-```
-$ kubectl get node --show-labels
+    ```
+    $ kubectl get node --show-labels
 
-NAME                                        STATUS   ROLES    AGE     VERSION          LABELS
-gke-prometheus-default-pool-8ba1a274-h2bt   Ready    <none>   6m17s   v1.16.11-gke.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=n1-standard-2,beta.kubernetes.io/os=linux,cloud.google.com/gke-nodepool=default-pool,cloud.google.com/gke-os-distribution=ubuntu,failure-domain.beta.kubernetes.io/region=us-central1,failure-domain.beta.kubernetes.io/zone=us-central1-c,kubernetes.io/arch=amd64,kubernetes.io/hostname=gke-prometheus-default-pool-8ba1a274-h2bt,kubernetes.io/os=linux,mayadata.io/control-plane=true,mayadata.io/date-plane=true,node=prometheus,topology.cstor.openebs.io/nodeName=gke-prometheus-default-pool-8ba1a274-h2bt
-gke-prometheus-default-pool-8ba1a274-k6cj   Ready    <none>   3h14m   v1.16.11-gke.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=n1-standard-2,beta.kubernetes.io/os=linux,cloud.google.com/gke-nodepool=default-pool,cloud.google.com/gke-os-distribution=ubuntu,failure-domain.beta.kubernetes.io/region=us-central1,failure-domain.beta.kubernetes.io/zone=us-central1-c,kubernetes.io/arch=amd64,kubernetes.io/hostname=gke-prometheus-default-pool-8ba1a274-k6cj,kubernetes.io/os=linux,mayadata.io/control-plane=true,mayadata.io/data-plane=true,node=prometheus,topology.cstor.openebs.io/nodeName=gke-prometheus-default-pool-8ba1a274-k6cj
-gke-prometheus-default-pool-8ba1a274-zhk3   Ready    <none>   3h14m   v1.16.11-gke.5   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=n1-standard-2,beta.kubernetes.io/os=linux,cloud.google.com/gke-nodepool=default-pool,cloud.google.com/gke-os-distribution=ubuntu,failure-domain.beta.kubernetes.io/region=us-central1,failure-domain.beta.kubernetes.io/zone=us-central1-c,kubernetes.io/arch=amd64,kubernetes.io/hostname=gke-prometheus-default-pool-8ba1a274-zhk3,kubernetes.io/os=linux,mayadata.io/control-plane=true,mayadata.io/data-plane=true,node=prometheus,topology.cstor.openebs.io/nodeName=gke-prometheus-default-pool-8ba1a274-zhk3
-```
+    NAME                                           STATUS   ROLES    AGE   VERSION   LABELS
+    ip-192-168-24-84.ap-south-1.compute.internal   Ready    <none>   15m   v1.16.9   alpha.eksctl.io/cluster-name=ranjith-eks3,alpha.eksctl.io/instance-id=i-06001f0f449dd1e45,alpha.eksctl.io/nodegroup-name=standard-workers,beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=t3.xlarge,beta.kubernetes.io/os=linux,failure-domain.beta.kubernetes.io/region=ap-south-1,failure-domain.beta.kubernetes.io/zone=ap-south-1c,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-192-168-24-84,kubernetes.io/os=linux
+    ip-192-168-47-20.ap-south-1.compute.internal   Ready    <none>   15m   v1.16.9   alpha.eksctl.io/cluster-name=ranjith-eks3,alpha.eksctl.io/instance-id=i-0d10d0e48dec8c173,alpha.eksctl.io/nodegroup-name=standard-workers,beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=t3.xlarge,beta.kubernetes.io/os=linux,failure-domain.beta.kubernetes.io/region=ap-south-1,failure-domain.beta.kubernetes.io/zone=ap-south-1b,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-192-168-47-20,kubernetes.io/os=linux
+    ip-192-168-93-98.ap-south-1.compute.internal   Ready    <none>   15m   v1.16.9   alpha.eksctl.io/cluster-name=ranjith-eks3,alpha.eksctl.io/instance-id=i-08a08af7384adfcd5,alpha.eksctl.io/nodegroup-name=standard-workers,beta.kubernetes.io/arch=amd64,beta.kubernetes.io/instance-type=t3.xlarge,beta.kubernetes.io/os=linux,failure-domain.beta.kubernetes.io/region=ap-south-1,failure-domain.beta.kubernetes.io/zone=ap-south-1a,kubernetes.io/arch=amd64,kubernetes.io/hostname=ip-192-168-93-98,kubernetes.io/os=linux
+    ```
 
-### Ensure the NDM pod is running on new node
+4. Ensure the NDM pods and other OpenEBS pods are running on new nodes
 
-```
-$ kubectl get pod -n openebs
-NAME                                              READY   STATUS    RESTARTS   AGE
-cspc-operator-64b59655db-8hmb6                    1/1     Running   0          167m
-cvc-operator-5cb75f7cd6-wlmn8                     1/1     Running   0          167m
-maya-apiserver-77975bbdcf-6nrjr                   1/1     Running   2          167m
-openebs-admission-server-66b6b8d44f-p9rgk         1/1     Running   0          167m
-openebs-cstor-admission-server-68d6bd8f6d-xjcmc   1/1     Running   0          167m
-openebs-localpv-provisioner-6cd4859c7c-gj5b7      1/1     Running   0          23m
-openebs-ndm-59x7f                                 1/1     Running   0          14s
-openebs-ndm-gtppd                                 1/1     Running   0          167m
-openebs-ndm-operator-f58cc87cf-nrpn6              1/1     Running   1          167m
-openebs-ndm-p96mx                                 1/1     Running   0          167m
-openebs-provisioner-7b7d644c47-zqjhs              1/1     Running   0          167m
-openebs-snapshot-operator-76d499b696-jj8pj        2/2     Running   0          167m
-```
+   ```
+   $ kubectl get pod -n openebs
 
-### Attach old disks to new node
+   ```
 
-```
-gcloud compute instances attach-disk gke-prometheus-default-pool-8ba1a274-h2bt --disk prometheus-disk2 --device-name prometheus-disk2 --zone=us-central1-c
-gcloud compute instances attach-disk gke-prometheus-default-pool-8ba1a274-h2bt --disk prometheus-disk5 --device-name prometheus-disk5 --zone=us-central1-c
-```
+5. Verify if new BDs are attched to new nodes
 
-### Verify if new BDs are atatched to new node
+   ```
+   $ kubectl get bd -n openebs
+   
+   NAME                                           NODENAME                                       SIZE          CLAIMSTATE   STATUS   AGE
+   blockdevice-82d4e91902529bd6d718f8fbe956274b   ip-192-168-24-84.ap-south-1.compute.internal   42949672960   Claimed      Active   151m
+   blockdevice-978ffcc0ee3c7b8bc709b5fef0b25953   ip-192-168-47-20.ap-south-1.compute.internal   42949672960   Claimed      Active   151m
+   blockdevice-ce1a004f2f7ba2fa603a2e8e0331aea0   ip-192-168-93-98.ap-south-1.compute.internal   42949672960   Claimed      Active   151m
+   ```
+6. Get the PV details
+   
+   ```
+   $ kubectl get pv
+   
+   NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                                                  STORAGECLASS     REASON    AGE
+   pvc-0d36674e-9094-4dca-889c-40d62bc6bb10   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-1   openebs-device              148m
+   pvc-22b0a740-f58d-41d6-8520-325fc7266a4f   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-0   openebs-device              149m
+   pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-2   openebs-device              147m
 
-```
-$ kubectl get bd -n openebs
-NAME                                           NODENAME                                    SIZE           CLAIMSTATE   STATUS   AGE
-blockdevice-4f51859193d333687a873af7acf8ad78   gke-prometheus-default-pool-8ba1a274-h2bt   107374182400   Claimed      Active   124m
-blockdevice-630ae186f095cd94d9158bdaa0005ae4   gke-prometheus-default-pool-8ba1a274-k6cj   107374182400   Claimed      Active   123m
-blockdevice-747a07ffae7a6a53762b3ce262c3307a   gke-prometheus-default-pool-8ba1a274-zhk3   107374182400   Claimed      Active   123m
-blockdevice-967d7816c2a2d73b91c8c6310dc70465   gke-prometheus-default-pool-8ba1a274-k6cj   107374182400   Claimed      Active   124m
-blockdevice-ddfc782ea661fc9007a896438f483e3d   gke-prometheus-default-pool-8ba1a274-zhk3   107374182400   Claimed      Active   123m
-blockdevice-e5265da8a790a2374758ec4600cd4bd7   gke-prometheus-default-pool-8ba1a274-h2bt   107374182400   Claimed      Active   123m
-```
+   ```
+   Copy the YAML spec of all the associated PVs like below
+   ```
+   $ kubectl get pv pvc-0d36674e-9094-4dca-889c-40d62bc6bb10 -o yaml > pv1.yaml
+   $ kubectl get pv pvc-22b0a740-f58d-41d6-8520-325fc7266a4f -o yaml > pv0.yaml
+   $ kubectl get pv pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827 -o yaml > pv2.yaml
+   ```
+7. Modify the above copied YAML specs with new hostname where the disk was attached. The change has to be needed for `value` of `key` as `kubernetes.io/hostname`.
 
-### Get the details of Pods and PVCs are running under `monitoring` namespace
+8. Remove Finalizers from the identified PVs which are going to be deleted. Once the PVs are modified, delete the PVs using the following commands.
+   
+   ```
+   $ kubectl delete pv pvc-0d36674e-9094-4dca-889c-40d62bc6bb10 pvc-22b0a740-f58d-41d6-8520-325fc7266a4f pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827
+   ```
+9. Check the status of PVs and application Pods.
+   The following shows the PVs are Lost.
+   ```
+   $ kubectl get pod,pvc -n cassandra
+   NAME                           READY   STATUS    RESTARTS   AGE
+   pod/cassandra-openebs-node-0   0/1     Pending   0          102m
 
-```
-$ kubectl get pod -n monitoring
+   NAME                                                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS     AGE
+   persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-0   Lost     pvc-22b0a740-f58d-41d6-8520-325fc7266a4f   0                         openebs-device   3h51m
+   persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-1   Lost     pvc-0d36674e-9094-4dca-889c-40d62bc6bb10   0                         openebs-device   3h50m
+   persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-2   Lost     pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   0                         openebs-device   3h49m
+   ```
+10. Apply the updated YAML files. 
+    
+    ```
+    $ kubectl apply -f pv0.yaml
+    persistentvolume/pvc-22b0a740-f58d-41d6-8520-325fc7266a4f created
+    
+    $ kubectl apply -f pv1.yaml
+    persistentvolume/pvc-0d36674e-9094-4dca-889c-40d62bc6bb10 created
+    
+    $ kubectl apply -f pv2.yaml
+    persistentvolume/pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827 created
+    ```
+ 11. Verify PODs are started `Running` from `Pending` state.
+  
+     ```
+     $ kubectl get pod,pvc,svc -n cassandra
+    
+     NAME                           READY   STATUS    RESTARTS   AGE
+     pod/cassandra-openebs-node-0   1/1     Running   0          111m
+     pod/cassandra-openebs-node-1   1/1     Running   0          7m46s
+     pod/cassandra-openebs-node-2   1/1     Running   0          6m35s
 
-NAME                                             READY   STATUS    RESTARTS   AGE
-alertmanager-new-alertmanager-0                  2/2     Running   0          101m
-alertmanager-new-alertmanager-1                  2/2     Running   0          101m
-alertmanager-new-alertmanager-2                  0/2     Pending   0          27m
-new-operator-5bfb4dc869-vcrzs                    1/1     Running   0          27m
-prometheus-grafana-85b4dbb556-lmsdr              2/2     Running   0          101m
-prometheus-kube-state-metrics-6df5d44568-b22bh   1/1     Running   0          101m
-prometheus-new-prometheus-0                      0/3     Pending   0          27m
-prometheus-new-prometheus-1                      3/3     Running   1          101m
-prometheus-new-prometheus-2                      3/3     Running   1          101m
-prometheus-prometheus-node-exporter-pd2nt        1/1     Running   0          101m
-prometheus-prometheus-node-exporter-rmprg        1/1     Running   0          101m
-prometheus-prometheus-node-exporter-x2tms        1/1     Running   0          9m15s
-```
+     NAME                                                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS     AGE
+     persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-0   Bound    pvc-22b0a740-f58d-41d6-8520-325fc7266a4f   20Gi       RWO            openebs-device   4h
+     persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-1   Bound    pvc-0d36674e-9094-4dca-889c-40d62bc6bb10   20Gi       RWO            openebs-device   3h59m
+     persistentvolumeclaim/var-lib-cassandra-cassandra-openebs-node-2   Bound    pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   20Gi       RWO            openebs-device   3h58m
 
-```
-$ kubectl get pvc -n monitoring
+     NAME                            TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)                      AGE
+     service/cassandra-openebs-svc   ClusterIP   10.100.9.95   <none>        7000/TCP,7001/TCP,9042/TCP   4h
+    
+     $ kubectl get pv
+     NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                                                  STORAGECLASS           REASON     AGE
+     pvc-0d36674e-9094-4dca-889c-40d62bc6bb10   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-1   openebs-device              8m54s
+     pvc-22b0a740-f58d-41d6-8520-325fc7266a4f   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-0   openebs-device              8m58s
+     pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   20Gi       RWO            Delete           Bound    cassandra/var-lib-cassandra-cassandra-openebs-node-2   openebs-device              8m51s
 
-NAME                                                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS     AGE
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-0   Bound    pvc-b947139a-6e60-4d76-bb6b-95f1803f4882   100Gi      RWO            openebs-device   101m
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-1   Bound    pvc-76426ffd-fec5-41a2-aa19-20a91349b0c9   100Gi      RWO            openebs-device   101m
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-2   Bound    pvc-b55023a0-7f94-41a1-8f37-108b2f432297   100Gi      RWO            openebs-device   101m
-prometheus-new-prometheus-db-prometheus-new-prometheus-0           Bound    pvc-4829833c-994e-445c-9b16-4a40d81f95b1   100Gi      RWO            openebs-device   101m
-prometheus-new-prometheus-db-prometheus-new-prometheus-1           Bound    pvc-4580c6df-759d-4a0a-9459-b9737a01f10b   100Gi      RWO            openebs-device   101m
-prometheus-new-prometheus-db-prometheus-new-prometheus-2           Bound    pvc-df1e8ec1-7de0-427e-9bdb-03014265e608   100Gi      RWO            openebs-device   101m
-```
+     ```
+ 12. Access the Database and verify the data stored previously.
+    
+     ```
+     $ kubectl exec -it cassandra-openebs-node-0 bash -n cassandra
+     cassandra@cassandra-openebs-node-0:/$ nodetool status
+     Datacenter: datacenter1
+     =======================
+     Status=Up/Down
+     |/ State=Normal/Leaving/Joining/Moving
+     --  Address         Load       Tokens       Owns (effective)  Host ID                               Rack
+     UN  192.168.11.219  282.12 KiB  256          34.5%             29bb331f-67a2-4440-86dc-32540aa40bc1  rack1
+     UN  192.168.82.118  302.23 KiB  256          30.7%             db10a0d7-2b42-4e67-b048-b6dca0ded0a6  rack1
+     UN  192.168.41.55   289.31 KiB  256          34.8%             d16694a9-18d3-4625-a6b7-346ef09545a0  rack1
 
-### Delete the PVCs associated to the pending pods one by one
+     cassandra@cassandra-openebs-node-0:/$  cqlsh cassandra-openebs-svc.cassandra.svc.cluster.local
+     Connected to cassandra-openebs at cassandra-openebs-svc.cassandra.svc.cluster.local:9042.
+     [cqlsh 5.0.1 | Cassandra 3.11.6 | CQL spec 3.4.4 | Native protocol v4]
+     Use HELP for help.
+     cqlsh> use dev;
+     cqlsh:dev> select * from emp;
 
-```
-$ kubectl delete pvc -n monitoring alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-2 prometheus-new-prometheus-db-prometheus-new-prometheus-0
+     empid | emp_dept | emp_first | emp_last
+     -------+----------+-----------+----------
+         1 |      fin |      fred |    smith
+         2 |    sales |       eon |   morgan
+         3 |       qa |     Ashok |    Kumar
 
-persistentvolumeclaim "alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-2" deleted
-persistentvolumeclaim "prometheus-new-prometheus-db-prometheus-new-prometheus-0" deleted
-```
-
-### Delete the old PVCs associated to `Pending` state
-
-```
-$ kubectl get pvc -n monitoring
-
-NAME                                                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS     AGE
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-0   Bound    pvc-b947139a-6e60-4d76-bb6b-95f1803f4882   100Gi      RWO            openebs-device   102m
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-1   Bound    pvc-76426ffd-fec5-41a2-aa19-20a91349b0c9   100Gi      RWO            openebs-device   102m
-prometheus-new-prometheus-db-prometheus-new-prometheus-1           Bound    pvc-4580c6df-759d-4a0a-9459-b9737a01f10b   100Gi      RWO            openebs-device   102m
-prometheus-new-prometheus-db-prometheus-new-prometheus-2           Bound    pvc-df1e8ec1-7de0-427e-9bdb-03014265e608   100Gi      RWO            openebs-device   102m
-```
-
-### Delete the old Pods which is in `Pending` state 
-
-```
-$ kubectl delete pod -n monitoring alertmanager-new-alertmanager-2
-pod "alertmanager-new-alertmanager-2" deleted
-
-$ kubectl delete pod -n monitoring prometheus-new-prometheus-0
-pod "prometheus-new-prometheus-0" deleted
-```
-
-### Verify new Pods,PVCs are running under `monitoring` namespace
-
-```
-$ kubectl get pvc -n monitoring
-
-NAME                                                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS     AGE
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-0   Bound    pvc-b947139a-6e60-4d76-bb6b-95f1803f4882   100Gi      RWO            openebs-device   103m
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-1   Bound    pvc-76426ffd-fec5-41a2-aa19-20a91349b0c9   100Gi      RWO            openebs-device   103m
-alertmanager-new-alertmanager-db-alertmanager-new-alertmanager-2   Bound    pvc-c59600c9-9904-4d6e-b30c-f1fd95c1af16   100Gi      RWO            openebs-device   38s
-prometheus-new-prometheus-db-prometheus-new-prometheus-0           Bound    pvc-801736a3-2d59-486b-945e-a461da5ee4a7   100Gi      RWO            openebs-device   30s
-prometheus-new-prometheus-db-prometheus-new-prometheus-1           Bound    pvc-4580c6df-759d-4a0a-9459-b9737a01f10b   100Gi      RWO            openebs-device   103m
-prometheus-new-prometheus-db-prometheus-new-prometheus-2           Bound    pvc-df1e8ec1-7de0-427e-9bdb-03014265e608   100Gi      RWO            openebs-device   103m
-```
-
-```
-$ kubectl get pod -n monitoring
-
-NAME                                             READY   STATUS    RESTARTS   AGE
-alertmanager-new-alertmanager-0                  2/2     Running   0          103m
-alertmanager-new-alertmanager-1                  2/2     Running   0          103m
-alertmanager-new-alertmanager-2                  2/2     Running   0          45s
-new-operator-5bfb4dc869-vcrzs                    1/1     Running   0          30m
-prometheus-grafana-85b4dbb556-lmsdr              2/2     Running   0          103m
-prometheus-kube-state-metrics-6df5d44568-b22bh   1/1     Running   0          103m
-prometheus-new-prometheus-0                      3/3     Running   1          37s
-prometheus-new-prometheus-1                      3/3     Running   1          103m
-prometheus-new-prometheus-2                      3/3     Running   1          103m
-prometheus-prometheus-node-exporter-pd2nt        1/1     Running   0          103m
-prometheus-prometheus-node-exporter-rmprg        1/1     Running   0          103m
-prometheus-prometheus-node-exporter-x2tms        1/1     Running   0          11m
-```
+      (3 rows)
+     ```
+     Now, it is verified that data is same as the one before.
+  
