@@ -1,4 +1,4 @@
-This will help to handle a scale down/ Node down scenario when a Local PV device has been used as the persistent storage volume for your stateful application, in this case Prometheus.
+This will help to handle a scale down/ Node down scenario when a Local PV device has been used as the persistent storage volume for your stateful application, in this case Kudo based Cassandra.
 
 ## Before scale down
 
