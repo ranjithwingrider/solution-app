@@ -353,7 +353,7 @@
      configmap/pgo-deployer-cm created
      clusterrolebinding.rbac.authorization.k8s.io/pgo-deployer-crb created
      job.batch/pgo-deploy created
-  
+     ```
      Wait for 2 mins to get the deployment for the operator has to been created.
 
 11. Download the pg client which is needed to install pg cluster and other management operations
@@ -412,34 +412,34 @@
     $ kubectl -n pgo port-forward svc/postgres-operator 8443:8443
     ```  
     
-   On previous terminal
-   ```	
-   $ pgo version
-   pgo client version 4.4.1
-   pgo-apiserver version 4.4.1
-   ```
-   Perform the following on the previous terminal.
+    On previous terminal
+    ```	
+    $ pgo version
+    pgo client version 4.4.1
+    pgo-apiserver version 4.4.1
+    ```
+    Perform the following on the previous terminal.
    
-   - Create a Database Clsuter
-     ```
-     $ pgo create cluster -n pgo pg-database
-     created cluster: pg-database
-     workflow id: f151673a-6ac6-4909-ae9e-c5053a9f8e05
-     database name: pg-database
-     users:
-	username: testuser password: L{6[L\p_LkvOog3_p7LY0\EP
-     ```
-     
-   - Check the Postgress default cluster status
-     ```
-     $ pgo test -n pgo pg-database
-     cluster : pg-database
-     Services
-        primary (10.79.6.213:5432): UP
-     Instances
-        primary (pg-database-6465d89cf9-q927n): UP
-     ```
-    In the above result, Services and Instances status should be `UP`. Then only, you can use the database for operations.
+    - Create a Database Clsuter
+      ```
+      $ pgo create cluster -n pgo pg-database
+      created cluster: pg-database
+      workflow id: f151673a-6ac6-4909-ae9e-c5053a9f8e05
+      database name: pg-database
+      users:
+          username: testuser password: L{6[L\p_LkvOog3_p7LY0\EP
+      ```
+      
+    - Check the Postgress default cluster status
+      ```
+      $ pgo test -n pgo pg-database
+      cluster : pg-database
+      Services
+         primary (10.79.6.213:5432): UP
+      Instances
+         primary (pg-database-6465d89cf9-q927n): UP
+      ```
+      In the above result, Services and Instances status should be `UP`. Then only, you can use the database for operations.
 				
 16. Check the status of PV,PVC,CVR,cStorVolume 	
     ```
