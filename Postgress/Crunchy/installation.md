@@ -19,32 +19,37 @@
    ```
 3. Attach disk to each Node
    ```
-   $ gcloud compute instances attach-disk gke-postgress-ranjith-default-pool-bafc3e6a-hln6 --disk mysql-disk1 --device-name mysql-disk1 --zone=us-central1-c
+   $ gcloud compute instances attach-disk gke-postgress-openebs-default-pool-90e061ff-9x0p --disk mysql-disk1 --device-name mysql-disk1 --zone=us-central1-c
 
-   $ gcloud compute instances attach-disk gke-postgress-ranjith-default-pool-bafc3e6a-k2w3 --disk mysql-disk2 --device-name mysql-disk2 --zone=us-central1-c
+   $ gcloud compute instances attach-disk gke-postgress-openebs-default-pool-90e061ff-g2mq --disk mysql-disk2 --device-name mysql-disk2 --zone=us-central1-c
 
-   $ gcloud compute instances attach-disk gke-postgress-ranjith-default-pool-bafc3e6a-s5l4 --disk mysql-disk3 --device-name mysql-disk3 --zone=us-central1-c
+   $ gcloud compute instances attach-disk gke-postgress-openebs-default-pool-90e061ff-th7l --disk mysql-disk3 --device-name mysql-disk3 --zone=us-central1-c
    ```
 4. Connect k8s cluster with Kubera Director
 
-5. Install OpenEBS using Kubera
+5. Install OpenEBS in Kubera Director
 
-6. Provision CSPC pool Kubera. I have used striped pool provisioning method.
-
+6. Provision CSPC pool in Kubera Director. I have used striped pool provisioning method.
+    
    - Verify that CSPC has been created successfully.
      ``` 
      $  kubectl get cspc -n openebs
+     
      NAME              HEALTHYINSTANCES   PROVISIONEDINSTANCES   DESIREDINSTANCES   AGE
-     cstorpool-usgqf   3                  3                      3                  48m
+     cstorpool-cxfun   3                  3                      3                  25m
+
+
      ```
+     Get the CSPI details.
      ```
      $ kubectl get cspi -n openebs
-     NAME                   HOSTNAME                                           ALLOCATED   FREE     CAPACITY    READONLY   PROVISIONEDREPLICAS   HEALTHYREPLICAS   TYPE     STATUS   AGE
-     cstorpool-usgqf-jxbs   gke-postgress-ranjith-default-pool-bafc3e6a-s5l4   108k        28800M   28800108k   false      0                     0                 stripe   ONLINE   48m
-     cstorpool-usgqf-k986   gke-postgress-ranjith-default-pool-bafc3e6a-hln6   108k        28800M   28800108k   false      0                     0                 stripe   ONLINE   48m
-     cstorpool-usgqf-nskw   gke-postgress-ranjith-default-pool-bafc3e6a-k2w3   154k        28800M   28800154k   false      0                     0                 stripe   ONLINE   48m
+     
+     NAME                   HOSTNAME                                     ALLOCATED   FREE     CAPACITY      READONLY   PROVISIONEDREPLICAS   HEALTHYREPLICAS   TYPE     STATUS   AGE
+     cstorpool-cxfun-d84t   gke-postgre-sql-default-pool-8044c486-0blk   74k         28800M   28800074k     false      0                     0                 stripe   ONLINE   26m
+     cstorpool-cxfun-kl2d   gke-postgre-sql-default-pool-8044c486-v0tz   66500       28800M   28800066500   false      0                     0                 stripe   ONLINE   26m
+     cstorpool-cxfun-wm8n   gke-postgre-sql-default-pool-8044c486-6rzj   614k        28800M   28800614k     false      0                     0                 stripe   ONLINE   26m
      ```
-7. Create a StorageClass and mention the following.
+7. Create a Storage Class and mention the following.
    
    - Name of the Storage Class
    
@@ -63,7 +68,7 @@
    parameters:
      cas-type: cstor
      replicaCount: "1"
-     cstorPoolCluster: cstorpool-usgqf   # Change CSPC name once CSPC pool has been created in Kubera Director
+     cstorPoolCluster: cstorpool-cxfun   # Change CSPC name once CSPC pool has been created in Kubera Director
    ```
 8. Apply the StorageClass
    ```
@@ -73,13 +78,14 @@
    Verify the StorageClass
    ```
    $ kubectl get sc
+   
    NAME                        PROVISIONER                                                AGE
-   openebs-csi-cstor-disk      cstor.csi.openebs.io                                       22s
-   openebs-device              openebs.io/local                                           52m
-   openebs-hostpath            openebs.io/local                                           52m
-   openebs-jiva-default        openebs.io/provisioner-iscsi                               52m
-   openebs-snapshot-promoter   volumesnapshot.external-storage.k8s.io/snapshot-promoter   52m
-   standard (default)          kubernetes.io/gce-pd                                       70m
+   openebs-csi-cstor-disk      cstor.csi.openebs.io                                       25s
+   openebs-device              openebs.io/local                                           8m41s
+   openebs-hostpath            openebs.io/local                                           8m41s
+   openebs-jiva-default        openebs.io/provisioner-iscsi                               8m45s
+   openebs-snapshot-promoter   volumesnapshot.external-storage.k8s.io/snapshot-promoter   8m43s
+   standard (default)          kubernetes.io/gce-pd                                       43m
    ```
 
 9. Get the Cass Operator manifest and update the Storage Class information wherever cStor volume need to be created.
@@ -341,21 +347,42 @@
                   name: pgo-deployer-cm
    ```
   
- 10. Create a namespace `pgo`.
-     ```    
-     $ kubectl create namespace pgo
-     ```
-     Apply the above postgres-operator YAML spec
-     ```  
-     $ kubectl apply -f postgres-operator.yml
-     serviceaccount/pgo-deployer-sa created
-     clusterrole.rbac.authorization.k8s.io/pgo-deployer-cr created
-     configmap/pgo-deployer-cm created
-     clusterrolebinding.rbac.authorization.k8s.io/pgo-deployer-crb created
-     job.batch/pgo-deploy created
-     ```
-     Wait for 2 mins to get the deployment for the operator has to been created.
-
+10. Create a namespace `pgo`.
+    ```    
+    $ kubectl create namespace pgo
+    ```
+    Apply the above postgres-operator YAML spec
+    ```  
+    $ kubectl apply -f postgres-operator.yml
+    
+    serviceaccount/pgo-deployer-sa created
+    clusterrole.rbac.authorization.k8s.io/pgo-deployer-cr created
+    configmap/pgo-deployer-cm created
+    clusterrolebinding.rbac.authorization.k8s.io/pgo-deployer-crb created
+    job.batch/pgo-deploy created
+    ```
+    Verify that PostgresSQL operator pod is running correctly.
+    ```
+    $  kubectl get pod -n pgo
+    
+    NAME               READY   STATUS    RESTARTS   AGE
+    pgo-deploy-hvglm   1/1     Running   0          53s
+    ```  
+    Wait for 2 mins to create the deployment for the PostgresSQL operator has to been created.
+    ```
+    $ kubectl get deploy -n pgo
+    
+    NAME                READY   UP-TO-DATE   AVAILABLE   AGE
+    postgres-operator   1/1     1            1           81s
+    ```
+    Verify that Postgress operator pod is running correctly.
+    ```
+    $  kubectl get pod -n pgo
+     
+    NAME                                 READY   STATUS      RESTARTS   AGE
+    pgo-deploy-hvglm                     0/1     Completed   0          2m22s
+    postgres-operator-58f448cd8c-xjcck   4/4     Running     1          54s
+    ```
 11. Download the pg client which is needed to install pg cluster and other management operations
     ```
     curl https://raw.githubusercontent.com/CrunchyData/postgres-operator/v4.4.1/installers/kubectl/client-setup.sh > client-setup.sh
@@ -371,43 +398,10 @@
     export PGO_CLIENT_CERT=/root/.pgo/pgo/client.crt
     export PGO_CLIENT_KEY=/root/.pgo/pgo/client.key
     EOF
-    ```
-
-12. Check the Postgress default cluster status
-    ```
-    $pgo test -n pgo default
-
-    cluster : default
-        Services
-                primary (10.96.6.3:5432): UP
-        Instances
-                primary (default-66b86b6b58-tgjwx): UP
-     ```
-     In the above result, Services and Instances status should be `UP`. Then only, you can use the database for operations.
- 		
-13. Check the status of PV,PVC,CVR,cStorVolume 		
-    ```
-    $ kubectl get pv
-    NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                   STORAGECLASS             REASON   AGE
-    pvc-18c1da1d-8b09-4e02-9bbf-9514a8fa2ee4   1Gi        RWO            Delete           Bound    pgo/default             openebs-csi-cstor-disk            7m37s
-    pvc-8c4ce584-6a43-4b85-95e5-687579a28fe0   1Gi        RWO            Delete           Bound    pgo/default-pgbr-repo   openebs-csi-cstor-disk            7m37s
     
-    $ kubectl get pvc -n pgo
-    NAME                STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS             AGE
-    default             Bound    pvc-18c1da1d-8b09-4e02-9bbf-9514a8fa2ee4   1Gi        RWO            openebs-csi-cstor-disk   7m41s
-    default-pgbr-repo   Bound    pvc-8c4ce584-6a43-4b85-95e5-687579a28fe0   1Gi        RWO            openebs-csi-cstor-disk   7m41s
-    
-    $ kubectl get cvr -n openebs
-    NAME                                                            USED    ALLOCATED   STATUS    AGE
-    pvc-18c1da1d-8b09-4e02-9bbf-9514a8fa2ee4-cstorpool-smkhr-rckh   46.2M   13.4M       Healthy   7m48s
-    pvc-8c4ce584-6a43-4b85-95e5-687579a28fe0-cstorpool-smkhr-rckh   44.7M   11.5M       Healthy   7m48s
-    
-    $ kubectl get cstorvolume -n openebs
-    NAME                                       STATUS    AGE     CAPACITY
-    pvc-18c1da1d-8b09-4e02-9bbf-9514a8fa2ee4   Healthy   7m55s   1Gi
-    pvc-8c4ce584-6a43-4b85-95e5-687579a28fe0   Healthy   7m55s   1Gi
-
-14. Open new ssh terminal
+    source ~/.bashrc
+    ```
+12. Open a new ssh terminal
     ```
     $ kubectl -n pgo port-forward svc/postgres-operator 8443:8443
     ```  
@@ -418,92 +412,93 @@
     pgo client version 4.4.1
     pgo-apiserver version 4.4.1
     ```
-    Perform the following on the previous terminal.
+13. Perform the following on the previous terminal.
    
     - Create a Database Clsuter
       ```
       $ pgo create cluster -n pgo pg-database
+      
       created cluster: pg-database
-      workflow id: f151673a-6ac6-4909-ae9e-c5053a9f8e05
+      workflow id: 436ba9a5-5eb6-46f4-ac19-5827f7d147bb
       database name: pg-database
       users:
-          username: testuser password: L{6[L\p_LkvOog3_p7LY0\EP
+            username: testuser password: /+c{\cXB2M-vfaEX2.tI91\`
       ```
       
     - Check the Postgress default cluster status
       ```
       $ pgo test -n pgo pg-database
+
       cluster : pg-database
-      Services
-         primary (10.79.6.213:5432): UP
-      Instances
-         primary (pg-database-6465d89cf9-q927n): UP
+            Services
+                   primary (10.32.10.86:5432): UP
+            Instances
+                   primary (pg-database-8486fc99f4-dkfwq): UP
+
       ```
       In the above result, Services and Instances status should be `UP`. Then only, you can use the database for operations.
 				
-16. Check the status of PV,PVC,CVR,cStorVolume 	
+14. Check the status of PV,PVC,CVR,cStorVolume 	
     ```
     $ kubectl get pvc -n pgo
     NAME                    STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS             AGE
-    pg-database             Bound    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c   5Gi        RWO            openebs-csi-cstor-disk   12m
-    pg-database-pgbr-repo   Bound    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2   5Gi        RWO            openebs-csi-cstor-disk   12m
+    pg-database             Bound    pvc-bba40176-4ca5-4f1c-a8e4-db3c3b65b0e5   5Gi        RWO            openebs-csi-cstor-disk   2m4s
+    pg-database-pgbr-repo   Bound    pvc-61bcdc37-5ccb-4cfa-b38b-ae3de9ada6bb   5Gi        RWO            openebs-csi-cstor-disk   2m3s
+
 
     $ kubectl get pv
     NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                       STORAGECLASS             REASON   AGE
-    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2   5Gi        RWO            Delete           Bound    pgo/pg-database-pgbr-repo   openebs-csi-cstor-disk            12m
-    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c   5Gi        RWO            Delete           Bound    pgo/pg-database             openebs-csi-cstor-disk            12m
+    pvc-61bcdc37-5ccb-4cfa-b38b-ae3de9ada6bb   5Gi        RWO            Delete           Bound    pgo/pg-database-pgbr-repo   openebs-csi-cstor-disk            2m14s
+    pvc-bba40176-4ca5-4f1c-a8e4-db3c3b65b0e5   5Gi        RWO            Delete           Bound    pgo/pg-database             openebs-csi-cstor-disk            2m14s
+
 
     $ kubectl get cvr -n openebs
     NAME                                                            USED    ALLOCATED   STATUS    AGE
-    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2-cstorpool-usgqf-k986   83.8M   16.5M       Healthy   12m
-    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c-cstorpool-usgqf-k986   51.0M   13.6M       Healthy   12m
+    pvc-61bcdc37-5ccb-4cfa-b38b-ae3de9ada6bb-cstorpool-cxfun-kl2d   4.78M   66.5K       Healthy   2m25s
+    pvc-bba40176-4ca5-4f1c-a8e4-db3c3b65b0e5-cstorpool-cxfun-wm8n   46.9M   12.9M       Healthy   2m26s
+ 
 
     $ kubectl get cv -n openebs
-    NAME                                       STATUS    AGE   CAPACITY
-    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2   Healthy   12m   5Gi
-    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c   Healthy   12m   5Gi
+    NAME                                       STATUS    AGE    CAPACITY
+    pvc-61bcdc37-5ccb-4cfa-b38b-ae3de9ada6bb   Healthy   4m3s   5Gi
+    pvc-bba40176-4ca5-4f1c-a8e4-db3c3b65b0e5   Healthy   4m3s   5Gi
+
 
     $ kubectl get pod -n openebs
     NAME                                                              READY   STATUS    RESTARTS   AGE
-    cspc-operator-5ff6bf8489-dh2zp                                    1/1     Running   0          125mcstorpool-usgqf-jxbs-6565846758-czwll                             3/3     Running   1          122m
-    cstorpool-usgqf-k986-764c48687f-cj722                             3/3     Running   1          122m
-    cstorpool-usgqf-nskw-bf5f4bddf-lspvt                              3/3     Running   1          122m
-    cvc-operator-7f94f5f9f5-hxlt6                                     1/1     Running   0          125m
-    maya-apiserver-9d67ccdfd-mn4jd                                    1/1     Running   2          125m
-    openebs-admission-server-747c98d589-4svft                         1/1     Running   0          125m
-    openebs-cstor-admission-server-6f75477676-psk9b                   1/1     Running   0          125m
-    openebs-localpv-provisioner-7495677ff8-9cvzn                      1/1     Running   0          125m
-    openebs-ndm-bmccb                                                 1/1     Running   0          125m
-    openebs-ndm-gw78b                                                 1/1     Running   0          125m
-    openebs-ndm-operator-86449bdbb6-5bdvl                             1/1     Running   1          125m
-    openebs-ndm-sfrjf                                                 1/1     Running   0          125m
-    openebs-provisioner-67859b5cc9-v9hps                              1/1     Running   0          125m
-    openebs-snapshot-operator-7bd666d6f5-5xjzt                        2/2     Running   0          125m
-    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2-target-7d5796c48dqwkj4   3/3     Running   0          12m
-    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c-target-56f9948dfdhxhzb   3/3     Running   0          12m
-
-    $ pgo backup pg-database --backup-opts="--type=full"
-    created Pgtask backrest-backup-pg-database
+    cspc-operator-5ff6bf8489-h6pkm                                    1/1     Running   0          43m
+    cstorpool-cxfun-d84t-79f78cb55d-v6tt5                             3/3     Running   2          39m
+    cstorpool-cxfun-kl2d-74646f795d-tx2hx                             3/3     Running   3          39m
+    cstorpool-cxfun-wm8n-6cbf775d8c-5nl54                             3/3     Running   3          39m
+    cvc-operator-7f94f5f9f5-zs5fk                                     1/1     Running   0          43m
+    maya-apiserver-9d67ccdfd-pccmt                                    1/1     Running   0          43m
+    openebs-admission-server-747c98d589-54xzj                         1/1     Running   0          43m
+    openebs-cstor-admission-server-6f75477676-nflc8                   1/1     Running   0          43m
+    openebs-localpv-provisioner-7495677ff8-tr8qq                      1/1     Running   0          43m
+    openebs-ndm-2n9hk                                                 1/1     Running   0          43m
+    openebs-ndm-9djdd                                                 1/1     Running   0          43m
+    openebs-ndm-mvlz4                                                 1/1     Running   0          43m
+    openebs-ndm-operator-86449bdbb6-q4b2d                             1/1     Running   1          43m
+    openebs-provisioner-67859b5cc9-wvlqb                              1/1     Running   0          43m
+    openebs-snapshot-operator-7bd666d6f5-2dhfn                        2/2     Running   0          43m
+    pvc-61bcdc37-5ccb-4cfa-b38b-ae3de9ada6bb-target-77d986db69fgjg8   3/3     Running   0          2m43s
+    pvc-bba40176-4ca5-4f1c-a8e4-db3c3b65b0e5-target-78c77c585c89cpc   3/3     Running   0          2m43s
 
 
-    $ kubectl get cvr -n openebs
-    NAME                                                            USED    ALLOCATED   STATUS    AGE
-    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2-cstorpool-usgqf-k986   154M    30.6M       Healthy   4h33m
-    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c-cstorpool-usgqf-k986   87.8M   19.7M       Healthy   4h33m
-
+16. Verify the status of Database status.
+    ```
     $ kubectl get pod -n pgo
+    
     NAME                                                READY   STATUS      RESTARTS   AGE
-    backrest-backup-pg-database-ddndz                   0/1     Completed   0          4h4mpg-database-6465d89cf9-q927n                        1/1     Running     0          4h20m
-    pg-database-backrest-shared-repo-854ccf598f-gxs5z   1/1     Running     0          4h22m
-    pg-database-stanza-create-29fr8                     0/1     Completed   0          4h19m
-    pgo-deploy-sbp2b                                    1/1     Running     0          5h17m
-    postgres-operator-58f448cd8c-lffz8                  4/4     Running     1          5h16m
+    backrest-backup-pg-database-7bzdb                   0/1     Completed   0          4m12s
+    pg-database-8486fc99f4-dkfwq                        1/1     Running     0          5m36s
+    pg-database-backrest-shared-repo-854ccf598f-2jkrl   1/1     Running     0          6m40s
+    pg-database-stanza-create-cr52c                     0/1     Completed   0          4m26s
+    pgo-deploy-hvglm                                    0/1     Completed   0          15m
+    postgres-operator-58f448cd8c-xjcck                  4/4     Running     1          13m
 
-    $ kubectl exec -it pg-database-6465d89cf9-q927n bash -n pgo
-    bash-4.2$
-    bash-4.2$
-    bash-4.2$ pssql
-    bash: pssql: command not found
+    $ kubectl exec -it pg-database-8486fc99f4-dkfwq bash -n pgo
+
     bash-4.2$ psql
     psql (12.4)
     Type "help" for help.
@@ -512,7 +507,6 @@
                                    List of databases
     Name     |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges
     -------------+----------+----------+-------------+-------------+-----------------------
-    mddb        | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 |
     pg-database | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =Tc/postgres         +
                 |          |          |             |             | postgres=CTc/postgres+
                 |          |          |             |             | testuser=CTc/postgres
@@ -521,216 +515,37 @@
                 |          |          |             |             | postgres=CTc/postgres
     template1   | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =c/postgres          +
                 |          |          |             |             | postgres=CTc/postgres
-    (5 rows)
+    (4 rows)
+
 
     postgres=#
 
     postgres=# \q
-    bash-4.2$ pgbench -i -s 50 mddb;
+    bash-4.2$ pgbench -i -s 50 pg-database;
     dropping old tables...
     NOTICE:  table "pgbench_accounts" does not exist, skipping
-    NOTICE:  table "pgbench
-    ....
-    0000 of 5000000 tuples (86%) done (elapsed 43.91 s, remaining 7.15 s)
-    4400000 of 5000000 tuples (88%) done (elapsed 45.37 s, remaining 6.19 s)
-    4500000 of 5000000 tuples (90%) done (elapsed 45.89 s, remaining 5.10 s)
-    4600000 of 5000000 tuples (92%) done (elapsed 46.69 s, remaining 4.06 s)
-    4700000 of 5000000 tuples (94%) done (elapsed 46.87 s, remaining 2.99 s)
-    4800000 of 5000000 tuples (96%) done (elapsed 47.71 s, remaining 1.99 s)
-    4900000 of 5000000 tuples (98%) done (elapsed 49.32 s, remaining 1.01 s)
-    5000000 of 5000000 tuples (100%) done (elapsed 49.46 s, remaining 0.00 s)
-
+    NOTICE:  table "pgbench_branches" does not exist, skipping
+    NOTICE:  table "pgbench_history" does not exist, skipping
+    NOTICE:  table "pgbench_tellers" does not exist, skipping
+    creating tables...
+    generating data...
+    100000 of 5000000 tuples (2%) done (elapsed 0.21 s, remaining 10.18 s)
+    200000 of 5000000 tuples (4%) done (elapsed 0.72 s, remaining 17.32 s)
+    300000 of 5000000 tuples (6%) done (elapsed 2.19 s, remaining 34.33 s)
+    .......
+    4400000 of 5000000 tuples (88%) done (elapsed 45.42 s, remaining 6.19 s)
+    4500000 of 5000000 tuples (90%) done (elapsed 47.03 s, remaining 5.23 s)
+    4600000 of 5000000 tuples (92%) done (elapsed 50.46 s, remaining 4.39 s)
+    4700000 of 5000000 tuples (94%) done (elapsed 51.41 s, remaining 3.28 s)
+    4800000 of 5000000 tuples (96%) done (elapsed 59.80 s, remaining 2.49 s)
+    4900000 of 5000000 tuples (98%) done (elapsed 65.18 s, remaining 1.33 s)
+    5000000 of 5000000 tuples (100%) done (elapsed 65.36 s, remaining 0.00 s)
     vacuuming...
     creating primary keys...
     done.
-
-17. Check the storage used in eachof the cStor Volume Replicas. 
-    ``` 
-    $ kubectl get cvr -n openebs
-    NAME                                                            USED    ALLOCATED   STATUS    AGE
-    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2-cstorpool-usgqf-k986   189M    64.0M       Healthy   5h1m
-    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c-cstorpool-usgqf-k986   1.56G   381M        Healthy   5h1m
-
-18. Check some of the database informations
-    ```
-    $ bash-4.2$ psql mddb;
-    psql (12.4)
-    Type "help" for help.
-   
-    mddb=# \l
-                                    List of databases
-    Name     |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges
-    -------------+----------+----------+-------------+-------------+-----------------------
-    mddb        | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 |
-    pg-database | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =Tc/postgres         +
-                |          |          |             |             | postgres=CTc/postgres+
-                |          |          |             |             | testuser=CTc/postgres
-    postgres    | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 |
-    template0   | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =c/postgres          +
-                |          |          |             |             | postgres=CTc/postgres
-    template1   | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =c/postgres          +
-                |          |          |             |             | postgres=CTc/postgres
-    (5 rows)
- 
-    mddb=# \dt
-                  List of relations
-    Schema |       Name       | Type  |  Owner
-    --------+------------------+-------+----------
-    public | pgbench_accounts | table | postgres
-    public | pgbench_branches | table | postgres
-    public | pgbench_history  | table | postgres
-    public | pgbench_tellers  | table | postgres
-    (4 rows)
-
-    mddb=# select count(*) from pgbench_accounts;
-    count
-    ---------
-    5000000
-    (1 row)
- 
-19. Let's take the full backup of the database.
-    ```
-    postgres=# pgo backup pg-database --backup-opts="--type=full"
-    postgres-#
-    ```
-    Get the wokflow details of the databsase.
-    ```
-    postgress# pgo show workflow f151673a-6ac6-4909-ae9e-c5053a9f8e05
-    parameter           value
-    ---------           -----
-    pg-cluster          pg-database
-    task completed      2020-08-27T07:15:22Z
-    task submitted      2020-08-27T07:13:02Z
-    workflowid          f151673a-6ac6-4909-ae9e-c5053a9f8e05
-
-    $ pgo show cluster pg-database
-
-    cluster : pg-database (crunchy-postgres-ha:centos7-12.4-4.4.1)
-        pod : pg-database-6465d89cf9-q927n (Running) on gke-postgress-ranjith-default-pool-bafc3e6a-s5l4 (1/1) (primary)
-                pvc: pg-database (5Gi)
-        resources : Memory: 128Mi
-        deployment : pg-database
-        deployment : pg-database-backrest-shared-repo
-        service : pg-database - ClusterIP (10.79.6.213)
-        labels : autofail=true crunchy_collect=false deployment-name=pg-database pgo-backrest=true pgo-version=4.4.1 workflowid=f151673a-6ac6-4909-ae9e-c5053a9f8e05 crunchy-pgbadger=false crunchy-pgha-scope=pg-database name=pg-database pg-cluster=pg-database pg-pod-anti-affinity= pgouser=admin
-
-     
-    $ postgress# pgo show backup pg-database
-
-	cluster: pg-database
-	storage type: local
-
-	stanza: db
-    	status: ok
-    	cipher: none
-
-    	db (current)
-        	wal archive min/max (12-1)
-
-        	full backup: 20200827-071538F
-            	timestamp start/stop: 2020-08-27 12:45:38 +0530 IST / 2020-08-27 12:46:20 +0530 IST
-            	wal start/stop: 000000010000000000000002 / 000000010000000000000002
-            	database size: 31.1MiB, backup size: 31.1MiB
-            	repository size: 3.7MiB, repository backup size: 3.7MiB
-            	backup reference list:
-
-        	full backup: 20200827-073038F
-            	timestamp start/stop: 2020-08-27 13:00:38 +0530 IST / 2020-08-27 13:01:32 +0530 IST
-            	wal start/stop: 000000010000000000000005 / 000000010000000000000006
-            	database size: 31.1MiB, backup size: 31.1MiB
-            	repository size: 3.7MiB, repository backup size: 3.7MiB
-            	backup reference list:
-
-
-20. Now, Let's restore the Database cluster.	
-    ```
-    $ pgo create cluster restore-pg-database --restore-from=pg-database
-    created cluster: restore-pg-database
-    workflow id: 513ced52-2ac4-4761-9304-95de769b3760
-    database name: restore-pg-database
-    users:
-        username: testuser password: 8jsJnO.j\NxMI,3W_6yX,AwO
-    ``` 
-    Verify the relevant PODs and storage volume details.
-    ```	
-    $ kubectl get pvc -n pgo
-    NAME                    STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS             AGE
-    pg-database             Bound    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c   5Gi        RWO            openebs-csi-cstor-disk   6h37m
-    pg-database-pgbr-repo   Bound    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2   5Gi        RWO            openebs-csi-cstor-disk   6h37m
-    restore-pg-database     Bound    pvc-b799145f-d6b0-4ad5-b542-fc5161af56eb   5Gi        RWO            openebs-csi-cstor-disk   47s
-   
-    $ kubectl get pod -n pgo
-    NAME                                                READY   STATUS      RESTARTS   AGE
-    backrest-backup-pg-database-4jqms                   0/1     Completed   0          6m40s
-    pg-database-6465d89cf9-q927n                        1/1     Running     0          6h36m
-    pg-database-backrest-shared-repo-854ccf598f-gxs5z   1/1     Running     0          6h37m
-    pg-database-stanza-create-29fr8                     0/1     Completed   0          6h35m
-    pgo-deploy-sbp2b                                    0/1     Error       0          7h32m
-    postgres-operator-58f448cd8c-lffz8                  4/4     Running     1          7h31m
-    restore-pg-database-bootstrap-lshfk                 1/1     Running     0          55s
-   
-    $ kubectl get pod -n pgo -o wide
-    NAME                                                READY   STATUS      RESTARTS   AGE     IP           NODE                                               NOMINATED NODE   READINESS GATES
-    backrest-backup-pg-database-4jqms                   0/1     Completed   0          6m46s   10.12.0.19   gke-postgress-ranjith-default-pool-bafc3e6a-s5l4   <none>           <none>
-    pg-database-6465d89cf9-q927n                        1/1     Running     0          6h36m   10.12.0.17   gke-postgress-ranjith-default-pool-bafc3e6a-s5l4   <none>           <none>
-    pg-database-backrest-shared-repo-854ccf598f-gxs5z   1/1     Running     0          6h37m   10.12.1.21   gke-postgress-ranjith-default-pool-bafc3e6a-hln6   <none>           <none>
-    pg-database-stanza-create-29fr8                     0/1     Completed   0          6h35m   10.12.1.22   gke-postgress-ranjith-default-pool-bafc3e6a-hln6   <none>           <none>
-    pgo-deploy-sbp2b                                    0/1     Error       0          7h33m   10.12.0.16   gke-postgress-ranjith-default-pool-bafc3e6a-s5l4   <none>           <none>
-    postgres-operator-58f448cd8c-lffz8                  4/4     Running     1          7h31m   10.12.2.14   gke-postgress-ranjith-default-pool-bafc3e6a-k2w3   <none>           <none>
-    restore-pg-database-bootstrap-lshfk                 1/1     Running     0          61s     10.12.0.20   gke-postgress-ranjith-default-pool-bafc3e6a-s5l4   <none>           <none>
-
-    $ kubectl get pv
-    NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                       STORAGECLASS             REASON   AGE
-    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2   5Gi        RWO            Delete           Bound    pgo/pg-database-pgbr-repo   openebs-csi-cstor-disk            6h37m
-    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c   5Gi        RWO            Delete           Bound    pgo/pg-database             openebs-csi-cstor-disk            6h37m
-    pvc-b799145f-d6b0-4ad5-b542-fc5161af56eb   5Gi        RWO            Delete           Bound    pgo/restore-pg-database     openebs-csi-cstor-disk            75s
-
-
-    $ kubectl get cvr -n openebs
-    NAME                                                            USED    ALLOCATED   STATUS    AGE
-    pvc-00cb0160-1b4c-4d26-8153-688534a2a3f2-cstorpool-usgqf-k986   242M    106M        Healthy   6h42m
-    pvc-781a8530-eaed-48ef-b103-ca8e41f87f9c-cstorpool-usgqf-k986   1.52G   376M        Healthy   6h42m
-    pvc-b799145f-d6b0-4ad5-b542-fc5161af56eb-cstorpool-usgqf-k986   865M    207M        Healthy   6m21s
-    pvc-bc7c1da5-c1a4-473f-9b14-f9be53602eec-cstorpool-usgqf-nskw   89.5M   45.4M       Healthy   4m23s
-
-
-    $ kubectl get pod -n pgo
-    NAME                                                       READY   STATUS      RESTARTS   AGE
-    backrest-backup-pg-database-4jqms                          0/1     Completed   0          12m
-    backrest-backup-restore-pg-database-slqfz                  1/1     Running     0          2m45s
-    pg-database-6465d89cf9-q927n                               1/1     Running     0          6h41m
-    pg-database-backrest-shared-repo-854ccf598f-gxs5z          1/1     Running     0          6h43m
-    pg-database-stanza-create-29fr8                            0/1     Completed   0          6h41m
-    pgo-deploy-sbp2b                                           0/1     Error       0          7h38m
-    postgres-operator-58f448cd8c-lffz8                         4/4     Running     1          7h37m
-    restore-pg-database-78c7c4bff5-6htbq                       1/1     Running     0          3m44s
-    restore-pg-database-backrest-shared-repo-f8f45b496-xzjk4   1/1     Running     0          4m48s
-    restore-pg-database-bootstrap-lshfk                        0/1     Completed   0          6m46s
-    restore-pg-database-stanza-create-pkqff                    0/1     Completed   0          2m49s
-   
-21. Verify the database details from the restored one.
-    ```
-    $ kubectl exec -it restore-pg-database-78c7c4bff5-6htbq bash -n pgo
-    bash-4.2$ psql mddb;
-    psql (12.4)
-    Type "help" for help.
-
-    mddb=# \l
-                                   List of databases
-    Name     |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges
-    -------------+----------+----------+-------------+-------------+-----------------------
-    mddb        | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 |
-    pg-database | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =Tc/postgres         +
-                |          |          |             |             | postgres=CTc/postgres+
-                |          |          |             |             | testuser=CTc/postgres
-    postgres    | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 |
-    template0   | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =c/postgres          +
-                |          |          |             |             | postgres=CTc/postgres
-    template1   | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =c/postgres          +
-                |          |          |             |             | postgres=CTc/postgres
-    (5 rows)
-
-    mddb=# \dt
+    
+    bash-4.2$ psql pg-database;
+    pg-database=#  \dt
                 List of relations
     Schema |       Name       | Type  |  Owner
     --------+------------------+-------+----------
@@ -740,7 +555,181 @@
     public | pgbench_tellers  | table | postgres
     (4 rows)
 
-    mddb=# select count(*) from pgbench_accounts;
+    pg-database=# select count(*) from pgbench_accounts;
+    count
+    ---------
+    5000000
+    (1 row)
+    
+    pg-database=# \q
+    bash-4.2$ exit
+    ```
+17. Check the storage used in each of the cStor Volume Replicas. 
+    ``` 
+    $ kubectl get cvr -n openebs
+   
+    NAME                                                            USED    ALLOCATED   STATUS    AGE
+    pvc-61bcdc37-5ccb-4cfa-b38b-ae3de9ada6bb-cstorpool-cxfun-kl2d   138M    63.4M       Healthy   15m
+    pvc-bba40176-4ca5-4f1c-a8e4-db3c3b65b0e5-cstorpool-cxfun-wm8n   1.72G   421M        Healthy   15m
+    ```
+    
+18. Let's take the full backup of the database. Login to the database and perform the backup operation. Get the wokflow details of the databsase. Get the worklflow details from Step 13. Run the command from where pgo utilitiy has installed in your local path. Ensure you have port-forwared the Postgres operator service in another shell.
+    ```
+    $ pgo show workflow 436ba9a5-5eb6-46f4-ac19-5827f7d147bb
+    parameter           value
+    ---------           -----
+    task completed      2020-09-08T09:28:21Z
+    task submitted      2020-09-08T09:26:06Z
+    workflowid          436ba9a5-5eb6-46f4-ac19-5827f7d147bb
+    pg-cluster          pg-database
+
+    $ pgo backup pg-database --backup-opts="--type=full"
+    created Pgtask backrest-backup-pg-database
+
+
+    $ pgo show cluster pg-database
+
+    cluster : pg-database (crunchy-postgres-ha:centos7-12.4-4.4.1)
+        pod : pg-database-8486fc99f4-dkfwq (Running) on gke-postgre-sql-default-pool-8044c486-0blk (1/1) (primary)
+                pvc: pg-database (5Gi)
+        resources : Memory: 128Mi
+        deployment : pg-database
+        deployment : pg-database-backrest-shared-repo
+        service : pg-database - ClusterIP (10.32.10.86)
+        labels : crunchy-pgbadger=false pg-cluster=pg-database pgo-backrest=true pgo-version=4.4.1 workflowid=436ba9a5-5eb6-46f4-ac19-5827f7d147bb pgouser=admin autofail=true crunchy-pgha-scope=pg-database crunchy_collect=false deployment-name=pg-database name=pg-database pg-pod-anti-affinity=
+
+     
+    $ postgress# pgo show backup pg-database
+    
+    cluster: pg-database
+    storage type: local
+
+    stanza: db
+         status: ok
+         cipher: none
+
+         db (current)
+            wal archive min/max (12-1)
+
+            full backup: 20200908-092842F
+                timestamp start/stop: 2020-09-08 14:58:42 +0530 IST / 2020-09-08 14:59:22 +0530 IST
+                wal start/stop: 000000010000000000000002 / 000000010000000000000002
+                database size: 31.1MiB, backup size: 31.1MiB
+                repository size: 3.7MiB, repository backup size: 3.7MiB
+                backup reference list:
+
+            full backup: 20200908-095052F
+                timestamp start/stop: 2020-09-08 15:20:52 +0530 IST / 2020-09-08 15:22:09 +0530 IST
+                wal start/stop: 000000010000000000000047 / 000000010000000000000048
+                database size: 779.0MiB, backup size: 779.0MiB
+                repository size: 44.3MiB, repository backup size: 44.3MiB
+                backup reference list:
+
+
+
+19. Now, Let's restore the Database cluster.	
+    ```
+    $ pgo create cluster restore-pg-database --restore-from=pg-database
+
+    created cluster: restore-pg-database
+    workflow id: 8bb5813f-60f6-45ca-a156-1883e2ad25f6
+    database name: restore-pg-database
+    users:
+          username: testuser password: 8Ct3:EG<C7O3tf@S[XNyqGry
+    ``` 
+    Verify the relavant PODs and storage volume details.
+    ```	
+    $ kubectl get pvc -n pgo
+
+    NAME                    STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS             AGE
+    pg-database             Bound    pvc-bba40176-4ca5-4f1c-a8e4-db3c3b65b0e5   5Gi        RWO            openebs-csi-cstor-disk   30m
+    pg-database-pgbr-repo   Bound    pvc-61bcdc37-5ccb-4cfa-b38b-ae3de9ada6bb   5Gi        RWO            openebs-csi-cstor-disk   30m
+    restore-pg-database     Bound    pvc-d1dcbaa1-ef40-4259-82bf-b1909891c9e7   5Gi        RWO            openebs-csi-cstor-disk   36s
+   
+    $ kubectl get pod -n pgo
+    NAME                                                READY   STATUS      RESTARTS   AGE
+    backrest-backup-pg-database-s6q4g                   0/1     Completed   0          6m36s
+    pg-database-8486fc99f4-dkfwq                        1/1     Running     0          30m
+    pg-database-backrest-shared-repo-854ccf598f-2jkrl   1/1     Running     0          31m
+    pg-database-stanza-create-cr52c                     0/1     Completed   0          29m
+    pgo-deploy-hvglm                                    0/1     Completed   0          39m
+    postgres-operator-58f448cd8c-xjcck                  4/4     Running     1          38m
+    restore-pg-database-bootstrap-vfs4p                 1/1     Running     0          57s
+
+   
+    $ kubectl get pod -n pgo -o wide
+    NAME                                                READY   STATUS      RESTARTS   AGE     IP           NODE                                         NOMINATED NODE   READINESS GATES
+    backrest-backup-pg-database-s6q4g                   0/1     Completed   0          7m10s   10.28.0.31   gke-postgre-sql-default-pool-8044c486-0blk   <none>           <none>
+    pg-database-8486fc99f4-dkfwq                        1/1     Running     0          30m     10.28.0.29   gke-postgre-sql-default-pool-8044c486-0blk   <none>           <none>
+    pg-database-backrest-shared-repo-854ccf598f-2jkrl   1/1     Running     0          31m     10.28.2.13   gke-postgre-sql-default-pool-8044c486-6rzj   <none>           <none>
+    pg-database-stanza-create-cr52c                     0/1     Completed   0          29m     10.28.0.30   gke-postgre-sql-default-pool-8044c486-0blk   <none>           <none>
+    pgo-deploy-hvglm                                    0/1     Completed   0          40m     10.28.2.11   gke-postgre-sql-default-pool-8044c486-6rzj   <none>           <none>
+    postgres-operator-58f448cd8c-xjcck                  4/4     Running     1          38m     10.28.1.11   gke-postgre-sql-default-pool-8044c486-v0tz   <none>           <none>
+    restore-pg-database-bootstrap-vfs4p                 1/1     Running     0          91s     10.28.0.32   gke-postgre-sql-default-pool-8044c486-0blk   <none>           <none>
+
+
+    $ kubectl get pv
+    NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                       STORAGECLASS             REASON   AGE
+    pvc-61bcdc37-5ccb-4cfa-b38b-ae3de9ada6bb   5Gi        RWO            Delete           Bound    pgo/pg-database-pgbr-repo           openebs-csi-cstor-disk            32m
+    pvc-bba40176-4ca5-4f1c-a8e4-db3c3b65b0e5   5Gi        RWO            Delete           Bound    pgo/pg-database                     openebs-csi-cstor-disk            32m
+    pvc-d1dcbaa1-ef40-4259-82bf-b1909891c9e7   5Gi        RWO            Delete           Bound    pgo/restore-pg-database             openebs-csi-cstor-disk            116s
+    pvc-ede94f90-d19a-4901-8467-e589eecc58a3   5Gi        RWO            Delete           Bound    pgo/restore-pg-database-pgbr-repo   openebs-csi-cstor-disk            5s
+
+
+    $ kubectl get cvr -n openebs
+    NAME                                                            USED    ALLOCATED   STATUS    AGE
+    pvc-61bcdc37-5ccb-4cfa-b38b-ae3de9ada6bb-cstorpool-cxfun-kl2d   246M    114M        Healthy   33m
+    pvc-bba40176-4ca5-4f1c-a8e4-db3c3b65b0e5-cstorpool-cxfun-wm8n   1.64G   409M        Healthy   33m
+    pvc-d1dcbaa1-ef40-4259-82bf-b1909891c9e7-cstorpool-cxfun-wm8n   847M    203M        Healthy   2m50s
+    pvc-ede94f90-d19a-4901-8467-e589eecc58a3-cstorpool-cxfun-wm8n   3.53M   56.5K       Healthy   59s
+
+
+    $ kubectl get pod -n pgo
+    NAME                                                       READY   STATUS      RESTARTS   AGE
+    backrest-backup-pg-database-s6q4g                          0/1     Completed   0          9m9s
+    pg-database-8486fc99f4-dkfwq                               1/1     Running     0          32m
+    pg-database-backrest-shared-repo-854ccf598f-2jkrl          1/1     Running     0          33m
+    pg-database-stanza-create-cr52c                            0/1     Completed   0          31m
+    pgo-deploy-hvglm                                           0/1     Completed   0          42m
+    postgres-operator-58f448cd8c-xjcck                         4/4     Running     1          40m
+    restore-pg-database-7f587b5f84-pb62h                       0/1     Running     0          51s
+    restore-pg-database-backrest-shared-repo-f8f45b496-57p2c   1/1     Running     0          99s
+    restore-pg-database-bootstrap-vfs4p                        0/1     Completed   0          3m30s
+
+   
+20. Verify the database details from the restored one.
+    ```
+    $ kubectl exec -it restore-pg-database-7f587b5f84-pb62h bash -n pgo
+    bash-4.2$ psql pg-database;
+    psql (12.4)
+    Type "help" for help.
+
+    pg-database=# \l
+                                   List of databases
+    Name     |  Owner   | Encoding |   Collate   |    Ctype    |   Access privileges
+    -------------+----------+----------+-------------+-------------+-----------------------
+    pg-database | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =Tc/postgres         +
+                |          |          |             |             | postgres=CTc/postgres+
+                |          |          |             |             | testuser=CTc/postgres
+    postgres    | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 |
+    template0   | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =c/postgres          +
+                |          |          |             |             | postgres=CTc/postgres
+    template1   | postgres | UTF8     | en_US.utf-8 | en_US.utf-8 | =c/postgres          +
+                |          |          |             |             | postgres=CTc/postgres
+    (4 rows)
+
+    pg-database=# \dt
+                 List of relations
+    Schema |       Name       | Type  |  Owner
+    --------+------------------+-------+----------
+    public | pgbench_accounts | table | postgres
+    public | pgbench_branches | table | postgres
+    public | pgbench_history  | table | postgres
+    public | pgbench_tellers  | table | postgres
+    (4 rows)
+
+
+    pg-database=# select count(*) from pgbench_accounts;
     count
     ---------
     5000000
