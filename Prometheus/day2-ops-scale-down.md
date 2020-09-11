@@ -255,7 +255,7 @@ pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827   20Gi       RWO            Delete     
    $ kubectl get pv pvc-22b0a740-f58d-41d6-8520-325fc7266a4f -o yaml > pv0.yaml
    $ kubectl get pv pvc-a2d81f41-cb97-46f6-91c4-d0cdff2b1827 -o yaml > pv2.yaml
    ```
-7. Modify the above copied YAML specs with new hostname where the disk was attached. The change has to be needed for `value` of `key` as `kubernetes.io/hostname`.
+7. Modify the above copied YAML specs with new hostname where the disk was attached. The change has to be needed for `value` of `key` `kubernetes.io/hostname`.
 
 8. Remove Finalizers from the identified PVs which are going to be deleted. Once the PVs are modified, delete the PVs using the following commands.
    
